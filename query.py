@@ -40,13 +40,16 @@ def testConnection():
 #After query.go, call query.results to get the JSON formatted result
 
 class Query():
-    def __init__(self,secret = 0):
+    def __init__(self,**kwargs):
         #USAGE: new Query(1)
         #setParameters(__param) - to set the type,query and value manually
         #go() - send the query
         #Query.result - get JSON formatted result
         #secret param tells wether query should be logged or not (1 or 0)
-        self.secret = secret
+        try:
+            self.secret = kwargs['secret']
+        except:
+            self.secret = 0
         #set query parameters
         self.type = "" #SQL Query types
         self.query = "" #parameterized query
