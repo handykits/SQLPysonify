@@ -8,7 +8,7 @@ db.testConnection()
 
 #test select
 def testSelect():
-    a = db.Query(1)
+    a = db.Query(secret = 1)
     params = {"type":"SELECT","query":"SELECT distinct keyword FROM keywords GROUP BY keyword","values":""}
     a.setParameters(params)
     try:
@@ -24,7 +24,7 @@ testSelect()
 
 #Test INSERT
 def testInsert():
-    a = db.Query(1)
+    a = db.Query(secret = 1)
     params = {"type":"INSERT","query":"INSERT INTO keywords (keyword,type) VALUES (%s,%s);","values":("testkeyword","test")}
     a.setParameters(params)
     try:
@@ -36,7 +36,7 @@ testInsert()
 
 #Test UPDATE
 def testUpdate():
-    a = db.Query(1)
+    a = db.Query(secret = 1)
     params = {"type":"UPDATE","query":"UPDATE keywords SET count = %s WHERE keyword = %s;","values":("5","testkeyword")}
     a.setParameters(params)
     try:
@@ -48,7 +48,7 @@ testUpdate()
 
 #Test DELETE
 def testDelete():
-    a = db.Query(1)
+    a = db.Query(secret = 1)
     params = {"type":"DELETE","query":"DELETE FROM keywords WHERE keyword = %s;","values":("testkeyword",)}
     a.setParameters(params)
     try:
@@ -103,7 +103,7 @@ def testSelectQueryGenerator():
 	    	} 
     	    ]
         }
-    a = db.Query(1)
+    a = db.Query(secret = 1)
     a.generate(__param)
     #If you wish to edit the query, you can easily do the following.
     #Example, adding limit - DO NOT EVER add user input and concatenate them here. This is intended for Query options only
@@ -120,7 +120,7 @@ testSelectQueryGenerator()
 
 def testUpdateQueryGenerator():
     #create a test record first for update
-    a = db.Query(1)
+    a = db.Query()
     params = {"type":"INSERT","query":"INSERT INTO keywords (keyword,type) VALUES (%s,%s);","values":("testkeyword","test")}
     a.setParameters(params)
     a.go()
@@ -151,7 +151,7 @@ def testUpdateQueryGenerator():
     a.generate(__param)
     a.go()
     #nowe test wether the value was actually updated
-    b = db.Query(1)
+    b = db.Query(secret = 1)
     params = {"type":"SELECT","query":"SELECT * FROM keywords WHERE keyword = %s","values":("testkeyword",)}
     b.setParameters(params)
     try:
@@ -183,7 +183,7 @@ def testDeleteQueryGenerator():
 	    	}
     	    ]
         }
-    a = db.Query(1)
+    a = db.Query(secret = 1)
     a.generate(__param)
     #If you wish to edit the query, you can easily do the following.
     #Example, adding limit - DO NOT EVER add user input and concatenate them here. This is intended for Query options only
@@ -196,5 +196,3 @@ def testDeleteQueryGenerator():
         print("Test 6 Error in performing query for DELETE query generator {e}".format(e))
 
 testDeleteQueryGenerator()
-time.sleep(65)
-testSelectQueryGenerator()
