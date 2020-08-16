@@ -5,7 +5,6 @@ import json
 #modules
 from main import settings
 #separate logging for db and log
-from main.models.db.dblogger import logger as dblog
 from main.utils.logging import logger as log
 import main.utils.id_generator as id_gen
 
@@ -55,10 +54,9 @@ class Query():
         self.query = "" #parameterized query
         self.values = "" #query values tuple
         #set the reslt to default empty values this will then be changed after caling query.go
-        self.result = {"count":"null","status":"","context":{}}
+        self.result = {"count":"0","status":"failed","context":{}}
         self.query_id = id_gen.generate(10)#create a query id that to track the query transaction
         log.info("Successfully created a new Query Object with ID: {}".format(self.query_id))
-        dblog.info("Successfully created a new Query Object with ID: {}".format(self.query_id))
         #When query is called, open a connection to DB
         
 
@@ -100,8 +98,8 @@ class Query():
         #private function for INSERT, UPDATE and DELETE Statements
         log.info("Initiating IDU query: {}".format(self.query_id))
         if(self.secret == 0):
-            dblog.info("qid: {0} - Query: {1}".format(self.query_id,self.query))
-            dblog.info("qid: {0} - Values: {1}".format(self.query_id,self.values))
+            log.info("qid: {0} - Query: {1}".format(self.query_id,self.query))
+            log.debug("qid: {0} - Values: {1}".format(self.query_id,self.values))
         for retries in range(0,10): #Max of 10 retries. If query fails, send a critical error. else, break the loop
             try:
                 __con = mysql.connect(
@@ -115,24 +113,21 @@ class Query():
                 log.debug("qid: {0} successfully sent query to db".format(self.query_id))
                 __con.commit()
                 log.debug("qid: {0} successfully commited query to db".format(self.query_id))
+                log.info("qid: {0}. successfully Performed INSERT query to db".format(self.query_id))
                 __cursor.close()
-                dblog.info("qid: {0}. successfully closed query connection to db".format(self.query_id))
+                log.debug("qid: {0}. successfully closed query connection to db".format(self.query_id))
                 #set result values
                 self.result['status'] = "success"
                 self.result['context'] = "Request proccessed."
                 break
             except mysql.Error as error:
-                dblog.error("qid: {0} Error: Unable to perform query".format(self.query_id))
-                log.error("qid: {0} Error: Unable to perform query".format(self.query_id))
-                if(self.secret == 0):
-                    dblog.error("qid: {0} Error: Unable to perform query with error: {1}".format(self.query_id,error))
-                    log.error("qid: {0} Error: Unable to perform query with error: {1}".format(self.query_id,error))
+                log.error("qid: {0} Error: Unable to perform query with error: {1}".format(self.query_id,error))
                 #if error is due to duplicate entry, break the loop and return the error
                 if(error.errno == 1062):
-                    dblog.error("qid: {0} Error: Duplicate Values for Primary key".format(self.query_id))
                     log.error("qid: {0} Error: Duplicate Values for Primary key".format(self.query_id))
                     #set result value
-                    self.result['context'] = "Duplicate Entry Found."
+                    self.result['status'] = "Failed"
+                    self.result['context'] = "Duplicate Entry Found"
                     break
                 else:
                     continue
@@ -144,8 +139,8 @@ class Query():
         #private function for Select Statements
         log.info("Initiating SELECT query: {}".format(self.query_id))
         if(self.secret == 0):
-            dblog.info("qid: {0} - Query: {1}".format(self.query_id,self.query))
-            dblog.info("qid: {0} - Values: {1}".format(self.query_id,self.values))
+            log.info("qid: {0} - Query: {1}".format(self.query_id,self.query))
+            log.debug("qid: {0} - Values: {1}".format(self.query_id,self.values))
         for retries in range(0,10): #Max of 10 retries. If query fails, send a critical error. else, break the loop
             try:
                 __con = mysql.connect(
@@ -170,19 +165,18 @@ class Query():
                 self.result['status'] = "success"
                 __con.close()
                 __cursor.close()
-                dblog.info("qid: {0}. successfully closed query connection to db".format(self.query_id))
+                log.info("qid: {0}. successfully Performed SELECT query to db".format(self.query_id))
+                log.debug("qid: {0}. successfully closed query connection to db".format(self.query_id))
                 break
             except mysql.Error as error:
-                dblog.error("qid: {0} Error: Unable to perform query".format(self.query_id))
                 log.error("qid: {0} Error: Unable to perform query".format(self.query_id))
                 if(self.secret == 0):
-                    dblog.error("qid: {0} Error: Unable to perform query with error: {1}".format(self.query_id,error))
                     log.error("qid: {0} Error: Unable to perform query with error: {1}".format(self.query_id,error))
                 #if error is due to duplicate entry, break the loop and return the error
                 if(error.errno == 1062):
-                    dblog.error("qid: {0} Error: Duplicate Values for Primary key".format(self.query_id))
                     log.error("qid: {0} Error: Duplicate Values for Primary key".format(self.query_id))
-                    self.result['context'] = "Duplicate Entry Found."
+                    self.result['status'] = "Failed"
+                    self.result['context'] = "Duplicate Entry Found"
                     break
                 else:
                     continue
@@ -216,6 +210,7 @@ class Query():
             self.result['status'] = "failed"
             if(self.result['context'] == "" or self.result['context'] == None):
                 self.result['context'] = "Unable to process request. Make sure the operation is valid."
+                log.error("Unable to process request. Make sure the operation is valid.")
             #raise Exception("input contains un-allowed characters. DB query aborted")
 
 
@@ -228,7 +223,7 @@ class Query():
         #Sample
         # __param = {
 	    # "type": "UPDATE",
-        # "table": "case_from_sf",
+        # "table": "keyword_table",
         # "filter": [{
     	# "col": "keyword",
 		# "operator": "=",
@@ -272,7 +267,7 @@ class Query():
             q = {"type":__param["type"],"query":base_query,"values":values}
             self.setParameters(q)
             if(self.secret == 0):
-                log.info("qid: {0} - Query Constructed: {1}".format(self.query_id,q))
+                log.debug("qid: {0} - Query Constructed: {1}".format(self.query_id,q))
             
 
     def __createBaseQuery(self,__param):
@@ -293,9 +288,9 @@ class Query():
             for filter in filters:
                 #loop through filters and construct the query. NOTE no column and operators are direct user input
                 if(self.secret != 1):
-                    log.info("qid: {0} - proccessing filters: {1}".format(self.query_id,filter))
+                    log.debug("qid: {0} - proccessing filters: {1}".format(self.query_id,filter))
                 else:
-                    log.info("qid: {0} - proccessing filters".format(self.query_id))
+                    log.debug("qid: {0} - proccessing filters".format(self.query_id))
                 if(i < 1):
                     where_clause = "where {0} {1} {2} %s".format(filter['comp'],filter['col'],filter['operator'])
                 else:
@@ -318,24 +313,24 @@ class Query():
                 valid_types = ["SELECT","UPDATE","INSERT","DELETE"]
                 if __param['type'] in valid_types:
                     proceed = True
-                    log.info("qid: {0} - Query.checkIfProceedGen - Query type is Valid".format(self.query_id))
+                    log.debug("qid: {0} - Query.checkIfProceedGen - Query type is Valid".format(self.query_id))
             else:
                 proceed = False
                 return proceed # columnn is not valid
             #for Update query, check the set columns
             if(__param['type'] == "UPDATE"):
-                log.info("qid: {0} - Query.checkifProceedGen - Checking if Set columns declared are valid".format(self.query_id))
+                log.debug("qid: {0} - Query.checkifProceedGen - Checking if Set columns declared are valid".format(self.query_id))
                 columns_valid = self.__checkColumns(__param['set'])
 
                 if(columns_valid == False):
                     proceed = False
                     return proceed
-                log.info("qid: {0} - Query.checkifProceedGen - Set Columns are valid".format(self.query_id))
+                log.debug("qid: {0} - Query.checkifProceedGen - Set Columns are valid".format(self.query_id))
             #make sure query is sanitized:
-            log.info("qid: {0} - Query.checkifProceedGen - Checking if Query filters are sanitized".format(self.query_id))
+            log.debug("qid: {0} - Query.checkifProceedGen - Checking if Query filters are sanitized".format(self.query_id))
             if(self._sanitizeQuery(__param['filter']) != True):
                 proceed = False
-                log.info("qid: {0} - Query.checkifProceedGen - Query is not an acceptable Query based on Sanitazion Rules".format(self.query_id))
+                log.error("qid: {0} - Query.checkifProceedGen - Query is not an acceptable Query based on Sanitazion Rules".format(self.query_id))
                 return proceed
         except Exception as e:
             log.error("qid: {0} -checkIfProceed Unable to generate query due to exception: {1}".format(self.query_id,e))
@@ -352,7 +347,7 @@ class Query():
         columns = ("behavior_id","behavior_name","related_host","domain_id","domain_name","data_center","current_host","host_issue","domain_entry_id","token","disabled",
                     "current_db","current_pop","current_nas","sccws_server","fvs_fgv","entry_id","snapshot","report_id","domain_id","user_id","timestamp","behaviors",
                     "si_number","description","snapshot_time","sf_id","case_number","service","topic","status","subject","status","time_opened","si_number","phase",
-                    "keyword","user","type","count","comparison")
+                    "keyword","user","type","count","comparison","user_name","role","first_name","last_name","sf_name","active","position","manager")
         valid = True
         for col in cols:
             cleaned_Col = col['col'].replace("(","")
@@ -410,7 +405,7 @@ class Query():
         log.debug("qid: {0} - Started sanitizing queries".format(self.query_id))
         if(self.__sanitizeOperators(__filters) == True and self.__sanitizeComparison(__filters) == True):
             __sanitized = True
-            log.info("qid: {0} - Successfully Sanitized the Query and Query is Valid")
+            log.debug("qid: {0} - Successfully Sanitized the Query and Query is Valid")
         else:
             print(self.__sanitizeComparison(__filters))
             log.error("qid {0} - Query does not fit Sanitation rule.".format(self.query_id))
@@ -424,11 +419,11 @@ class Query():
             cleaned_filter = filter['comp'].replace(")", "")
             cleaned_filter = cleaned_filter.replace("(", "") 
             if(cleaned_filter in allowed_comparisons):
-                log.info("qid: {0} - {1} is a valid comparison string".format(self.query_id,filter["comp"]))
+                log.debug("qid: {0} - {1} is a valid comparison string".format(self.query_id,filter["comp"]))
             else:
                 sanitized_comp = False
                 print(cleaned_filter)
-        log.info("qid: {0} - Sanitized Comparisons: {1}".format(self.query_id,sanitized_comp))
+        log.debug("qid: {0} - Sanitized Comparisons: {1}".format(self.query_id,sanitized_comp))
         return sanitized_comp
 
 
@@ -440,18 +435,28 @@ class Query():
             cleaned_filter = filter['operator'].replace(")", "") #For multiple conditions that uses pharentesisr
             if(cleaned_filter not in allowed_operators):
                 sanitized_ops = False
-                log.info("qid: {0} - Operators {1} is invalid".format(self.query_id,cleaned_filter))
+                log.error("qid: {0} - Operators {1} is invalid".format(self.query_id,cleaned_filter))
             else:
-                log.info("qid: {0} - Sanitized Operator: {1} is valid".format(self.query_id,cleaned_filter))
+                log.debug("qid: {0} - Sanitized Operator: {1} is valid".format(self.query_id,cleaned_filter))
         return sanitized_ops
 
     def __sanitizeXss(self,values):
         #TODO create a more robust xss sanitation and also get it from settings.py
-        log.info("qid: {0} - Query.SanitizeXss Started Sanitizing Query for XSS".format(self.query_id))
+        log.debug("qid: {0} - Query.SanitizeXss Started Sanitizing Query for XSS".format(self.query_id))
         if (any('>' in i for i in values)) :
-            print("ghhh")
             log.error("qid: {0} unaccepted values.XSS protection: Character: {1} is not allowed.".format(self.query_id,str(values)))
             self.result['context'] = "Unable to save un-allowed characters"
             return False
         else:
             return True
+
+
+    def isOptionValid(self,options):
+        #TODO list all valid queries
+        #this function will check if the SQL query option is valid
+        #example: LIMIT, DESC. Make sure there will be no direct user input when adding Query Options
+        log.error("Begin Query Option Check")
+        return True
+
+
+    
