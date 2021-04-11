@@ -344,10 +344,7 @@ class Query():
         #we do this because we cannot parameterize a column and we allow users to customize a column filter
         #in short, user can only filter based on existing columns.
         #TODO check if there is anyway to get it from .env file via settings.py
-        columns = ("behavior_id","behavior_name","related_host","domain_id","domain_name","data_center","current_host","host_issue","domain_entry_id","token","disabled",
-                    "current_db","current_pop","current_nas","sccws_server","fvs_fgv","entry_id","snapshot","report_id","domain_id","user_id","timestamp","behaviors",
-                    "si_number","description","snapshot_time","sf_id","case_number","service","topic","status","subject","status","time_opened","si_number","phase",
-                    "keyword","user","type","count","comparison","user_name","role","first_name","last_name","sf_name","active","position","manager")
+        columns = ("b","a")
         valid = True
         for col in cols:
             cleaned_Col = col['col'].replace("(","")
